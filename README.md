@@ -1,2 +1,3 @@
 # NHBio_16S_Analysis
-16S分析流程代码
+This repository contains the codes used for the following paper:
+Accurate Five-category Classification for Colorectal Cancer Using Gut Microbiome 16S rRNA Sequencing
