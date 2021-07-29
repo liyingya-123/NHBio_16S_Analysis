@@ -1,0 +1,85 @@
+```{r setup, include=FALSE}
+# 设置全局格式
+knitr::opts_chunk$set(
+	echo=T, comment=NA, message=F, warning=F,
+	fig.align="center", fig.width=5, fig.height=3, dpi=300)
+```
+##### 堆叠柱状图
+
+```{R}
+if (!requireNamespace("devtools", quietly=TRUE))
+    install.packages("devtools")
+library("devtools")
+if (!requireNamespace("amplicon", quietly=TRUE))
+    install_github("microbiota/amplicon")
+suppressWarnings(suppressMessages(library(amplicon)))
+```
+- 分组均值门水平堆叠柱状图
+
+```{R}
+# 加载内置属水平物种组成表
+#data(tax_phylum)
+tax_phylum1 <- read.table('raw-genusdata0317.txt',row.names=1,sep="\t",header=T, blank.lines.skip=F,check.names=F)
+tax_phylum <- as.data.frame(tax_phylum1[-1,])
+# 加载内置元数据, 包括SampleID, Group and Site
+#data(metadata)
+metadata1 <- t(tax_phylum1[1,])
+metadata1 <- as.data.frame(metadata1)
+metadata1$label <- factor(metadata1$label ,c("CR","AA","NAA",'PL','NM'))
+
+##因为metadata数据太少，因此加入一列，没有特殊含义，为了不报错。
+##后续数据多了可以删除这一操作
+metadata1[,2] <- rep(1:3,2,987)
+colnames(metadata1) <- c('Group','site')
+# 门水平物种组成表和元数据作为输入，分组列名为Group，默认显示前8个分类，按丰度排序
+tax_phylum = as.data.frame(lapply(tax_phylum,as.numeric))
+rownames(tax_phylum) = rownames(tax_phylum1[-1,])
+(p = tax_stackplot(tax_phylum,metadata1,groupID="Group",topN=10))
+zoom=1.2 # 控制图片缩放比例
+# 输出图片
+ggsave(paste0("species-duidie.pdf"), p, width=89*zoom, height=56*zoom,units="mm")
+```
+
+##### 气泡图/树状图展示微生物分类
+
+```{R}
+#为保证顺利生成phyloseq对象，将两个对象调整为矩阵
+otu_its1 <- read.table('otu_label_all0317.txt',row.names=1,sep="\t",header=T, blank.lines.skip=F,check.names=F)
+otu_its1 <- as.matrix(otu_its1)
+otutab1=as.matrix(otu_its1)
+
+###物种注释数据
+tax_its1 <-read.table('sintax_rdp.fixed.txt',header=F, blank.lines.skip=F,check.names=F,row.names=1)
+rowname <- rownames(tax_its1)
+tax_its1<- tax_its1[,3]
+tax_its1 <- as.data.frame(tax_its1)
+rownames(tax_its1) <- rowname
+##拆分数据
+for(i in 1:nrow(tax_its1)){
+  mid <- as.character(unlist(strsplit(tax_its1[i,1], split = ","))) 
+  for(j in 1:length(mid)){
+     tax_its1[i,j] =substring(gsub('["]', '', mid[j]),3)
+  }
+}
+colnames(tax_its1) <- c("Kingdom","Phylum","Class","Order", "Family", "Genus", "Species")
+tax_its1[is.na(tax_its1)] <- "unassigned"
+taxonomy1=as.matrix(tax_its1)
+
+# Input feature table, taxonomy and Top N features, and format into mapdata
+taxonomy_f = taxonomy1[which(rownames(taxonomy1) %in% rownames(otutab1)),]
+mapdata=format2maptree(otutab1, taxonomy_f)
+# Add mean abundance size and phylum color for maptree
+mapadd1=tax_maptree(mapdata)
+# Saving and plotting maptree
+(p=mapadd1[[1]])
+zoom=2
+ggsave(paste0("paopaotu.pdf"), p, width=89*zoom, height=56*zoom, units="mm")
+```
+
+
+##### 弦图展示微生物门类信息
+
+```{R}
+# Set 4 parameters: set top 5 taxonomy, group by "Group"
+tax_circlize(tax_sum=tax_phylum, metadata1, topN=5, groupID="Group")
+```
